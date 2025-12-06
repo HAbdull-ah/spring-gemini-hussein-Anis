@@ -1,12 +1,15 @@
 package com.example.demo;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
-@RequestMapping("/auth")
+import java.io.IOException;
+import java.util.Map;
+
+@Controller
 public class AuthController {
 
     private final UserRepository userRepository;
@@ -15,43 +18,84 @@ public class AuthController {
         this.userRepository = userRepository;
     }
 
+    // ============================
+    // REGISTER
+    // ============================
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody User user) {
-        if (user.getUsername() == null || user.getPassword() == null) {
-            return ResponseEntity.badRequest().body("Username and password are required.");
+    public void register(
+            @RequestParam String username,
+            @RequestParam String password,
+            HttpServletResponse response
+    ) throws IOException {
+
+        //Check if username already exists
+        if (userRepository.existsById(username)) {
+            response.sendRedirect("/register.html?error=taken");
+            return;
         }
 
-        if (userRepository.findByUsername(user.getUsername()) != null) {
-            return ResponseEntity.badRequest().body("Username already taken.");
-        }
+        //Save user
+        userRepository.save(new User(username, password));
 
-        userRepository.save(user);
-        return ResponseEntity.ok("User registered successfully.");
+        //After registration. Send user to login page
+        response.sendRedirect("/login.html?registered=1");
     }
 
+    // ============================
+    // LOGIN
+    // ============================
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User loginRequest, HttpServletRequest request) {
-        User found = userRepository.findByUsernameAndPassword(
-                loginRequest.getUsername(),
-                loginRequest.getPassword()
-        );
+    public void login(
+            @RequestParam String username,
+            @RequestParam String password,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
 
-        if (found == null) {
-            return ResponseEntity.status(401).body("Invalid username or password.");
+        var userOpt = userRepository.findById(username);
+
+        // User not found OR wrong password
+        if (userOpt.isEmpty() || !userOpt.get().getPassword().equals(password)) {
+            response.sendRedirect("/login.html?error=1");
+            return;
         }
 
+        // Create Session
         HttpSession session = request.getSession(true);
-        session.setAttribute("username", found.getUsername());
+        session.setAttribute("username", username);
 
-        return ResponseEntity.ok("Login successful.");
+        // Redirect to home page
+        response.sendRedirect("/index.html");
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest request) {
+    // ============================
+    // LOGOUT
+    // ============================
+    @GetMapping("/logout")
+    public void logout(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
+
         HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
+        if (session != null) session.invalidate();
+
+        response.sendRedirect("/login.html");
+    }
+
+    // ============================
+    // SESSION CHECK (For index.html)
+    // ============================
+    @GetMapping("/session")
+    @ResponseBody
+    public Map<String, String> session(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        HttpSession session = request.getSession(false);
+
+        if (session == null || session.getAttribute("username") == null) {
+            response.setStatus(401); // Not logged in
+            return Map.of("error", "not_logged_in");
         }
-        return ResponseEntity.ok("Logged out.");
+
+        return Map.of("username", session.getAttribute("username").toString());
     }
 }

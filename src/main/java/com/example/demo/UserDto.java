@@ -1,24 +1,15 @@
 package com.example.demo;
 
-import com.google.cloud.spring.data.datastore.core.mapping.Entity;
-import org.springframework.data.annotation.Id;
+public class UserDto {
+    private String username;
+    private String password;
 
-@Entity(name = "User")
-public class User {
+    public UserDto() {}
 
-    @Id
-    private String username;   //datastore
-    private String password; 
-
-    public User() {
-    }
-
-    public User(String username, String password) {
+    public UserDto(String username, String password) {
         this.username = username;
         this.password = password;
     }
-
-    // getters & setters
 
     public String getUsername() {
         return username;

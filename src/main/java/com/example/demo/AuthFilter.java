@@ -22,21 +22,34 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Public pages that do NOT require login
+        // PUBLIC pages (no session required)
         boolean isPublic =
                 path.startsWith("/login") ||
-                path.startsWith("/auth") ||
-                path.startsWith("/css") ||
-                path.startsWith("/js") ||
-                path.startsWith("/images") ||
-                path.equals("/favicon.ico");
+                path.startsWith("/register") ||
+                path.endsWith("login.html") ||
+                path.endsWith("register.html") ||
+                path.endsWith(".css") ||
+                path.endsWith(".js") ||
+                path.endsWith(".png") ||
+                path.endsWith(".jpg") ||
+                path.endsWith(".jpeg") ||
+                path.endsWith(".ico");
 
         if (isPublic) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Check if user is authenticated
+        // PROTECT ALL AI ENDPOINTS
+        if (path.startsWith("/ai")) {
+            HttpSession session = request.getSession(false);
+            if (session == null || session.getAttribute("username") == null) {
+                response.sendRedirect("/login.html");
+                return;
+            }
+        }
+
+        // PROTECTED pages (index, root, anything else)
         HttpSession session = request.getSession(false);
         boolean loggedIn = (session != null && session.getAttribute("username") != null);
 
